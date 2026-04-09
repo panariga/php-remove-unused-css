@@ -1,9 +1,8 @@
 <?php
 
-namespace Momentum81\PhpRemoveUnusedCss;
+declare(strict_types=1);
 
-use Momentum81\PhpRemoveUnusedCss\RemoveUnusedCss;
-use Momentum81\PhpRemoveUnusedCss\RemoveUnusedCssInterface;
+namespace Momentum81\PhpRemoveUnusedCss;
 
 /**
  * This is the basic version of the strip tool - this will only
@@ -22,25 +21,30 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
      */
     use RemoveUnusedCss;
 
+    /**
+     * @var string[]
+     */
+    protected array $foundUsedCssElements = ['*'];
 
     /**
-     * @var array
+     * @var array<string, array<string, array<string, string>>>
      */
-    protected $foundUsedCssElements = ['*'];
-    protected $foundCssStructure    = [];
-    protected $readyForSave         = [];
-
+    protected array $foundCssStructure = [];
 
     /**
-     * @var string
+     * @var array<int, array{filename: string, newFilename: string, source: string}>
      */
-    protected $elementForNoMediaBreak = '__NO_MEDIA__';
-
+    protected array $readyForSave = [];
 
     /**
-     * @var array
+     * Use a constant or typed property for the media break marker
      */
-    protected $regexForHtmlFiles = [
+    protected string $elementForNoMediaBreak = '__NO_MEDIA__';
+
+    /**
+     * Modernized property declarations with types
+     */
+    protected array $regexForHtmlFiles = [
         'HTML Tags' => [
             'regex' => '/\<([[:alnum:]_-]+).*(?!\/)\>/',
             'stringPlaceBefore' => '',
@@ -68,19 +72,17 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
         ],
     ];
 
-
     /**
      * @var string[]
      */
-    protected $regexForCssFiles = [
+    protected array $regexForCssFiles = [
         '/}*([\[*a-zA-Z0-9-_ \~\>\^\"\=\n\(\)\@\+\,\.\#\:\]*]+){+([^}]+)}/',
     ];
-
 
     /**
      * @inheritDoc
      */
-    public function refactor()
+    public function refactor(): self
     {
         $this->findAllHtmlFiles();
         $this->findAllStyleSheetFiles();
@@ -92,17 +94,15 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
         return $this;
     }
 
-
     /**
      * @inheritDoc
      */
-    public function saveFiles() {
-
+    public function saveFiles(): self
+    {
         $this->createFiles();
 
         return $this;
     }
-
 
     /**
      * @inheritDoc
@@ -112,35 +112,32 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
         return $this->readyForSave;
     }
 
-
     /**
      * Strip out the unused element
-     *
-     * @return  void
      */
-    protected function filterCss()
+    protected function filterCss(): void
     {
         foreach ($this->foundCssStructure as $file => &$fileData) {
-
             foreach ($fileData as $key => &$block) {
-
                 foreach ($block as $selectors => $values) {
-
                     $keep = false;
                     $mergedArray = array_merge($this->whitelistArray, $this->foundUsedCssElements);
 
-                    foreach (explode(',', $selectors) as $selector) {
-
+                    foreach (explode(',', (string)$selectors) as $selector) {
+                        $selector = trim($selector);
                         $explodeA = explode(' ', $selector);
-                        $explodeB = explode(' ', explode(':', $selector)[0]);
-                        $explodeC = explode(':', $selector)[0];
+                        
+                        // Using explode logic to find the base selector
+                        $baseSelector = explode(':', $selector)[0];
+                        $explodeB = explode(' ', $baseSelector);
                         
                         if (
-                            (in_array(end($explodeA), $mergedArray)) ||
-                            (in_array(end($explodeB), $mergedArray)) ||
-                            (in_array($explodeC, $mergedArray))
+                            (in_array(end($explodeA), $mergedArray, true)) ||
+                            (in_array(end($explodeB), $mergedArray, true)) ||
+                            (in_array($baseSelector, $mergedArray, true))
                         ) {
                             $keep = true;
+                            break; // Optimization: stop looking if we found a match
                         }
                     }
 
@@ -152,59 +149,58 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
         }
     }
 
-
     /**
      * Get the source ready to be saved in files or returned
-     *
-     * @return  void
      */
-    public function prepareForSaving()
+    public function prepareForSaving(): void
     {
         foreach ($this->foundCssStructure as $file => $fileData) {
-
             $source = '';
 
             foreach ($fileData as $key => $block) {
-
                 $prefix  = '';
                 $postfix = '';
                 $indent  = 0;
 
-                if ($key != $this->elementForNoMediaBreak) {
-
-                    $prefix  = $key." {\n";
+                if ($key !== $this->elementForNoMediaBreak) {
+                    $prefix  = $key . " {\n";
                     $postfix = "}\n\n";
                     $indent  = 4;
                 }
 
                 if (!empty($block)) {
-
                     $source .= $prefix;
 
                     foreach ($block as $selector => $values) {
+                        $values = trim((string)$values);
 
-                        $values = trim($values);
+                        // Use modern PHP 8 string functions
+                        if (!str_ends_with($values, ';')) {
+                            $values .= ';';
+                        }
+                        
+                        if (str_contains($values, '{')) {
+                            $values .= '}';
+                        }
 
-                        if (substr($values, -1) !== ';') { $values .= ';'; }
-                        if (strpos($values, '{') !== false) { $values .= '}'; }
-
-                        $source .= str_pad('', $indent, ' ').$selector." {\n";
-                        $source .= str_pad('', $indent, ' ')."    ".$values."\n";
-                        $source .= str_pad('', $indent, ' ')."}\n";
+                        $source .= str_pad('', $indent, ' ') . $selector . " {\n";
+                        $source .= str_pad('', $indent, ' ') . "    " . $values . "\n";
+                        $source .= str_pad('', $indent, ' ') . "}\n";
                     }
 
                     $source .= $postfix;
                 }
             }
 
-            $filenameBeforeExt = substr($file, 0, strrpos($file, '.'));
-            $filenameExt       = substr($file, strrpos($file, '.'), strlen($file));
+            $lastDotPos = strrpos($file, '.');
+            $filenameBeforeExt = $lastDotPos !== false ? substr($file, 0, $lastDotPos) : $file;
+            $filenameExt = $lastDotPos !== false ? substr($file, $lastDotPos) : '';
 
             if (!empty($this->appendFilename)) {
-                $filenameExt = $this->appendFilename.$filenameExt;
+                $filenameExt = $this->appendFilename . $filenameExt;
             }
 
-            $newFileName = $filenameBeforeExt.$filenameExt;
+            $newFileName = $filenameBeforeExt . $filenameExt;
 
             $this->readyForSave[] = [
                 'filename'    => $file,
@@ -212,85 +208,75 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
                 'source'      => (
                     $this->minify
                         ? $this->performMinification($source)
-                        : $this->getComment().$source
+                        : $this->getComment() . $source
                 ),
             ];
         }
     }
 
-
     /**
      * Create the stripped down CSS files
-     *
-     * @return  void
      */
-    protected function createFiles()
+    protected function createFiles(): void
     {
         foreach ($this->readyForSave as $fileData) {
             $this->createFile($fileData['newFilename'], $fileData['source']);
         }
     }
 
-
     /**
      * Scan the CSS files for all main elements
-     *
-     * @return void
      */
-    protected function scanCssFilesForAllElements()
+    protected function scanCssFilesForAllElements(): void
     {
         foreach ($this->foundCssFiles as $file) {
+            if (!file_exists($file)) continue;
 
-            $breaks = explode('@media', file_get_contents($file));
+            $content = file_get_contents($file);
+            $breaks = explode('@media', $content);
 
-            $loop = 0;
-
-            foreach ($breaks as $break) {
-
+            foreach ($breaks as $loop => $break) {
                 $break = trim($break);
 
-                if ($loop == 0) {
+                if ($loop === 0) {
                     $key = $this->elementForNoMediaBreak;
                     $cssSectionOfBreakArray = [$break];
                 } else {
-                    $key = '@media '.substr($break, 0, strpos($break, '{'));
-                    $cssSectionOfBreakToArrayize = substr($break, strpos($break, '{'), strrpos($break, '}'));
+                    $firstBrace = strpos($break, '{');
+                    if ($firstBrace === false) continue;
+
+                    $key = '@media ' . substr($break, 0, $firstBrace);
+                    $cssSectionOfBreakToArrayize = substr($break, $firstBrace, strrpos($break, '}') ?: null);
                     $cssSectionOfBreakArray = $this->splitBlockIntoMultiple($cssSectionOfBreakToArrayize);
                 }
 
                 foreach ($cssSectionOfBreakArray as $counter => $cssSectionOfBreak) {
-
                     if ($counter > 0) {
                         $key = $this->elementForNoMediaBreak;
                     }
 
                     foreach ($this->regexForCssFiles as $regex) {
-
                         preg_match_all($regex, $cssSectionOfBreak, $matches, PREG_PATTERN_ORDER);
 
-                        if (!empty($matches)) {
-
+                        if (!empty($matches[1])) {
                             foreach ($matches[1] as $regexKey => $element) {
-                                $this->foundCssStructure[$file][$key][trim(preg_replace('/\s+/', ' ', $element))] = trim(preg_replace('/\s+/', ' ', $matches[2][$regexKey]));
+                                $cleanElement = trim(preg_replace('/\s+/', ' ', (string)$element));
+                                $cleanValue = trim(preg_replace('/\s+/', ' ', (string)$matches[2][$regexKey]));
+                                $this->foundCssStructure[$file][$key][$cleanElement] = $cleanValue;
                             }
                         }
                     }
                 }
-
-                $loop++;
             }
         }
     }
 
-
     /**
-     * Because we break on @media there's often another block of non
-     * @media CSS after it, so we need to get that out separately
+     * Modernized splitting logic
      *
-     * @param   string  $string
-     * @return  string[]
+     * @return string[]
      */
-    protected function splitBlockIntoMultiple($string = '')
+    protected function splitBlockIntoMultiple(string $string = ''): array
     {
         $totalOpen   = 0;
         $totalClosed = 0;
@@ -298,65 +284,62 @@ class RemoveUnusedCssBasic implements RemoveUnusedCssInterface
         $blocks      = [];
         $stringSoFar = '';
 
+        // Using mb_str_split if multi-byte characters are expected, 
+        // but str_split is fine for standard CSS
         foreach (str_split($string) as $counter => $character) {
-
             $stringSoFar .= $character;
 
-            if ($character == '{') {
+            if ($character === '{') {
                 $totalOpen++;
             }
 
-            if ($character == '}') {
-
+            if ($character === '}') {
                 $totalClosed++;
 
-                if ($totalClosed == $totalOpen) {
-
+                if ($totalClosed === $totalOpen && $totalOpen > 0) {
                     $blocks[$counterMark] = $stringSoFar;
-
-                    $stringSoFar = ''; $totalOpen = 0; $totalClosed = 0;
+                    $stringSoFar = ''; 
+                    $totalOpen = 0; 
+                    $totalClosed = 0;
                     $counterMark = $counter;
                 }
             }
         }
 
-        $returnBlock = [0 => '', 1 => ''];
+        $returnBlock = ['', ''];
 
         foreach ($blocks as $block) {
-
-            if (substr(trim($block), 0, 1) == '{') {
+            $trimmed = trim($block);
+            if (str_starts_with($trimmed, '{')) {
                 $returnBlock[0] = $block;
             } else {
-                $returnBlock[1] .= $block."\n";
+                $returnBlock[1] .= $block . "\n";
             }
         }
 
         return array_filter($returnBlock);
     }
 
-
     /**
      * Find all matching HTML css elements
-     *
-     * @return void
      */
-    protected function scanHtmlFilesForUsedElements()
+    protected function scanHtmlFilesForUsedElements(): void
     {
         foreach ($this->foundHtmlFiles as $file) {
+            if (!file_exists($file)) continue;
 
-            foreach ($this->regexForHtmlFiles as $regex) {
+            $content = file_get_contents($file);
 
-                preg_match_all($regex['regex'], file_get_contents($file), $matches, PREG_PATTERN_ORDER);
+            foreach ($this->regexForHtmlFiles as $config) {
+                preg_match_all($config['regex'], $content, $matches, PREG_PATTERN_ORDER);
 
-                if (isset($matches[1])) {
-
+                if (!empty($matches[1])) {
                     foreach ($matches[1] as $match) {
+                        foreach (explode(' ', (string)$match) as $explodedMatch) {
+                            $formattedMatch = $config['stringPlaceBefore'] . trim($explodedMatch) . $config['stringPlaceAfter'];
 
-                        foreach (explode(' ', $match) as $explodedMatch) {
-
-                            $formattedMatch = $regex['stringPlaceBefore'].trim($explodedMatch).$regex['stringPlaceAfter'];
-
-                            if (!in_array($formattedMatch, $this->foundUsedCssElements)) {
+                            // Using strict in_array
+                            if (!in_array($formattedMatch, $this->foundUsedCssElements, true)) {
                                 $this->foundUsedCssElements[] = $formattedMatch;
                             }
                         }
