@@ -15,12 +15,12 @@ interface RemoveUnusedCssInterface
      * Uses 'static' return type to ensure method chaining points 
      * to the implementing class.
      */
-    public function refactor(): static;
+    public function refactor();
 
     /**
      * Save the new CSS files.
      */
-    public function saveFiles(): static;
+    public function saveFiles();
 
     /**
      * Instead of saving as files, return the CSS 
