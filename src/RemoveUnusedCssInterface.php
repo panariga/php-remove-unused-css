@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Momentum81\PhpRemoveUnusedCss;
 
 /**
@@ -8,26 +10,23 @@ namespace Momentum81\PhpRemoveUnusedCss;
 interface RemoveUnusedCssInterface
 {
     /**
-     * Refactor the CSS and remove the unused elements
-     *
-     * @return  $this
+     * Refactor the CSS and remove the unused elements.
+     * 
+     * Uses 'static' return type to ensure method chaining points 
+     * to the implementing class.
      */
-    public function refactor();
-
+    public function refactor(): static;
 
     /**
-     * Save the new CSS files
-     *
-     * @return  $this
+     * Save the new CSS files.
      */
-    public function saveFiles();
-
+    public function saveFiles(): static;
 
     /**
-     * Instead of saving as files, return the CSS
-     * in an array of strings (per file)
+     * Instead of saving as files, return the CSS 
+     * in an array of strings (per file).
      *
-     * @return  array
+     * @return array<string>
      */
     public function returnAsText(): array;
 }
