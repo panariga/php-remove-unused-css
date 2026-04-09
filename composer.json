@@ -1,11 +1,11 @@
 {
-    "name": "momentum81/php-remove-unused-css",
+    "name": "panariga/php-remove-unused-css",
     "description": "PHP Remove Unused CSS is a tool to remove unused CSS from your website using PHP",
     "keywords": [
         "momentum81",
         "php-remove-unused-css"
     ],
-    "homepage": "https://github.com/momentum81/php-remove-unused-css",
+    "homepage": "https://github.com/panariga/php-remove-unused-css",
     "license": "MIT",
     "require": {
         "php" : "^8.4",
